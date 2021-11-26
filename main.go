@@ -11,19 +11,35 @@ import (
 	"time"
 
 	"github.com/ajaymahar/microservices/handlers"
+	"github.com/gorilla/mux"
 )
 
 func main() {
 	logger := log.New(os.Stdout, "product-api", log.LstdFlags)
 
+	// mux NewRouter
+	r := mux.NewRouter()
+
+	// product handlers
 	ph := handlers.NewProducts(logger)
 
-	sm := http.NewServeMux()
-	sm.Handle("/", ph)
+	// subrouter for GET methods
+	getRouter := r.Methods(http.MethodGet).Subrouter()
+	getRouter.HandleFunc("/product", ph.GetProducts)
+
+	// subrouter for post method
+	postRouter := r.Methods(http.MethodPost).Subrouter()
+	postRouter.HandleFunc("/product", ph.CreateProduct)
+	postRouter.Use(ph.MiddlewareProductValidator)
+
+	// subrouter for put mehtod
+	putRouter := r.Methods(http.MethodPut).Subrouter()
+	putRouter.HandleFunc("/product/{id:[0-9]+}", ph.UpdateProduct)
+	putRouter.Use(ph.MiddlewareProductValidator)
 
 	s := &http.Server{
 		Addr:              "localhost:8080",
-		Handler:           sm,
+		Handler:           r,
 		TLSConfig:         &tls.Config{},
 		ReadTimeout:       15 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
